@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUDDY OS / VER 1.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --cyan: #00e5ff;
+    --cyan-dim: #00b8cc;
+    --orange: #ff6600;
+    --green: #00ff88;
+    --bg: #020d14;
+    --bg2: #041820;
+    --panel: rgba(0,180,220,0.04);
+    --border: rgba(0,229,255,0.25);
+    --font-main: 'Orbitron', monospace;
+    --font-mono: 'Share Tech Mono', monospace;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--cyan);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    user-select: none;
+  }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);
+    pointer-events:none; z-index:9999;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    position:fixed; top:0; left:0; right:0; height:48px;
+    background:var(--bg2); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; padding:0 20px; gap:20px;
+    z-index:100; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+  }
+  .sys-status { color:var(--green); display:flex; align-items:center; gap:8px; }
+  .sys-status::before {
+    content:''; width:8px; height:8px; border-radius:50%;
+    background:var(--green); box-shadow:0 0 6px var(--green);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .ticker { flex:1; overflow:hidden; color:var(--cyan-dim); }
+  .ticker-inner { display:inline-block; animation:ticker 22s linear infinite; white-space:nowrap; }
+  @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+  .top-right { font-family:var(--font-main); font-size:10px; color:var(--cyan); text-align:right; letter-spacing:1px; }
+
+  /* ── MAIN GRID ── */
+  #main {
+    position:fixed; top:48px; left:0; right:0; bottom:48px;
+    display:grid; grid-template-columns:280px 1fr 280px;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background:var(--panel); border-right:1px solid var(--border);
+    padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden;
+  }
+  .panel.right { border-right:none; border-left:1px solid var(--border); }
+
+  .pbox {
+    border:1px solid var(--border); background:rgba(0,20,30,0.6);
+    padding:10px; position:relative;
+  }
+  .pbox::before,.pbox::after { content:''; position:absolute; width:8px; height:8px; border-color:var(--cyan); border-style:solid; }
+  .pbox::before { top:-1px; left:-1px; border-width:2px 0 0 2px; }
+  .pbox::after  { bottom:-1px; right:-1px; border-width:0 2px 2px 0; }
+
+  .ptitle { font-family:var(--font-main); font-size:9px; letter-spacing:3px; color:var(--cyan); margin-bottom:8px; text-transform:uppercase; }
+  .bigval { font-family:var(--font-main); font-size:22px; font-weight:700; color:var(--orange); text-shadow:0 0 12px var(--orange); margin:4px 0; }
+  .subval { font-size:10px; color:var(--cyan-dim); letter-spacing:1px; }
+  .netstat { font-size:10px; color:var(--cyan-dim); margin:3px 0; letter-spacing:1px; }
+  .netstat span { color:var(--cyan); }
+
+  .bwrap { margin:4px 0; }
+  .btrack { height:4px; background:rgba(0,229,255,0.1); border-radius:2px; overflow:hidden; }
+  .bfill { height:100%; border-radius:2px; transition:width 1s; }
+  .bfill.c { background:var(--cyan); box-shadow:0 0 6px var(--cyan); }
+  .bfill.o { background:var(--orange); box-shadow:0 0 6px var(--orange); }
+  .bfill.g { background:var(--green); box-shadow:0 0 6px var(--green); }
+
+  .minichart { display:flex; align-items:flex-end; gap:2px; height:40px; margin-top:6px; }
+  .mbar { flex:1; background:var(--cyan-dim); opacity:.7; border-radius:1px; min-height:4px; animation:barA 2s ease-in-out infinite alternate; }
+  @keyframes barA { from{opacity:.4} to{opacity:1} }
+
+  .temp-row { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:10px; }
+  .temp-label { width:50px; color:var(--cyan-dim); }
+  .temp-track { flex:1; height:4px; background:rgba(0,229,255,0.1); border-radius:2px; overflow:hidden; }
+  .temp-bar { height:100%; border-radius:2px; }
+  .tgpu  { background:var(--orange); box-shadow:0 0 4px var(--orange); }
+  .tcpua { background:var(--green);  box-shadow:0 0 4px var(--green); }
+  .tcpub { background:var(--cyan);   box-shadow:0 0 4px var(--cyan); }
+  .tlocal{ background:var(--cyan-dim); }
+  .temp-val { width:36px; text-align:right; color:var(--cyan); font-size:10px; }
+
+  /* ── CENTER ── */
+  #center {
+    display:flex; flex-direction:column; align-items:center;
+    padding:14px 16px; overflow:hidden;
+  }
+
+  /* ARC REACTOR */
+  #arc-container { position:relative; width:260px; height:260px; margin-bottom:12px; flex-shrink:0; }
+  #arc-svg { width:100%; height:100%; }
+  .arc-ring { fill:none; stroke-width:2; transform-origin:center; animation:rotCW 8s linear infinite; }
+  .arc-ring.ccw { animation:rotCCW 6s linear infinite; }
+  .arc-ring.slow { animation-duration:15s; }
+  @keyframes rotCW  { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
+  @keyframes rotCCW { from{transform:rotate(360deg)} to{transform:rotate(0deg)} }
+
+  #arc-glow {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:4px; text-align:center;
+    font-family:var(--font-main); font-size:11px; font-weight:700; letter-spacing:2px; color:var(--cyan);
+  }
+  .arc-sub { font-size:9px; letter-spacing:3px; color:var(--cyan-dim); animation:pulse 2s infinite; }
+
+  /* BADGES */
+  #status-row { display:flex; gap:8px; margin-bottom:10px; }
+  .badge {
+    padding:5px 12px; border:1px solid var(--border); font-size:9px;
+    letter-spacing:2px; text-transform:uppercase; color:var(--cyan-dim);
+    font-family:var(--font-main);
+  }
+  .badge.active   { border-color:var(--green);  color:var(--green);  text-shadow:0 0 8px var(--green);  animation:pulse 2s infinite; }
+  .badge.listening{ border-color:var(--orange); color:var(--orange); text-shadow:0 0 8px var(--orange); animation:pulse 1s infinite; }
+
+  /* VOICE VIS */
+  #voice-vis { display:flex; align-items:center; justify-content:center; gap:3px; height:28px; margin:4px 0; }
+  .vbar { width:4px; background:var(--cyan); border-radius:2px; transition:height .08s; min-height:4px; box-shadow:0 0 4px var(--cyan); }
+  .vbar.hot { background:var(--orange); box-shadow:0 0 4px var(--orange); }
+
+  /* CHAT BOXES */
+  #chat-area { width:100%; flex:1; display:flex; flex-direction:column; gap:8px; min-height:0; }
+  .cbox {
+    border:1px solid var(--border); background:rgba(0,20,30,0.8);
+    padding:10px 14px; position:relative; flex:1; overflow:hidden;
+  }
+  .cbox::before,.cbox::after { content:''; position:absolute; width:10px; height:10px; border-color:var(--cyan); border-style:solid; }
+  .cbox::before { top:-1px; left:-1px; border-width:2px 0 0 2px; }
+  .cbox::after  { bottom:-1px; right:-1px; border-width:0 2px 2px 0; }
+  .clabel { font-family:var(--font-main); font-size:9px; letter-spacing:3px; text-transform:uppercase; margin-bottom:6px; }
+  .clabel.you  { color:var(--green); }
+  .clabel.buddy{ color:var(--orange); }
+  .ctext { font-size:12px; line-height:1.6; color:rgba(0,229,255,.75); min-height:24px; }
+  #resp-text { color:rgba(255,255,255,.88); font-size:12px; line-height:1.6; min-height:24px; }
+
+  .typing::after { content:'█'; animation:blink .8s infinite; color:var(--orange); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── BOTTOM BAR ── */
+  #bottombar {
+    position:fixed; bottom:0; left:0; right:0; height:48px;
+    background:var(--bg2); border-top:1px solid var(--border);
+    display:flex; align-items:center; z-index:100;
+    font-size:10px; letter-spacing:1px; text-transform:uppercase; overflow:hidden;
+  }
+  .bseg {
+    padding:0 14px; height:100%; display:flex; align-items:center; gap:8px;
+    border-right:1px solid var(--border); white-space:nowrap;
+  }
+  .bseg:last-child { border-right:none; }
+  .bseg .st { color:var(--cyan-dim); }
+  .bseg .sv { color:var(--cyan); }
+  .bbars { display:flex; align-items:flex-end; gap:1px; height:24px; }
+  .bbars span { width:3px; background:var(--cyan-dim); border-radius:1px; animation:barA 1.5s ease-in-out infinite alternate; }
+  #stark-logo { flex:1; text-align:center; font-family:var(--font-main); font-size:9px; letter-spacing:6px; color:rgba(0,229,255,.25); padding:0 10px; }
+
+  /* ── BOOT OVERLAY ── */
+  #boot-overlay {
+    position:fixed; inset:0; background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    z-index:500; flex-direction:column; gap:20px; transition:opacity .8s;
+  }
+  #boot-overlay.hidden { opacity:0; pointer-events:none; }
+  #boot-logo {
+    font-family:var(--font-main); font-size:52px; font-weight:900;
+    color:var(--cyan); letter-spacing:14px;
+    text-shadow:0 0 40px var(--cyan),0 0 80px var(--cyan-dim);
+    animation:glow 2s ease-in-out infinite;
+  }
+  @keyframes glow {
+    0%,100%{text-shadow:0 0 20px var(--cyan),0 0 40px var(--cyan-dim)}
+    50%{text-shadow:0 0 60px var(--cyan),0 0 120px var(--cyan-dim),0 0 180px rgba(0,229,255,.3)}
+  }
+  #boot-sub { font-family:var(--font-main); font-size:10px; letter-spacing:8px; color:var(--cyan-dim); animation:pulse 1.5s infinite; }
+  #boot-prog { width:300px; height:2px; background:rgba(0,229,255,.1); border-radius:1px; overflow:hidden; }
+  #boot-bar  { height:100%; background:var(--cyan); width:0%; box-shadow:0 0 8px var(--cyan); transition:width .25s; }
+  #boot-msg  { font-size:11px; letter-spacing:2px; color:var(--cyan-dim); height:16px; text-align:center; }
+
+  /* ── NOTIF ── */
+  #notif {
+    position:fixed; top:58px; left:50%; transform:translateX(-50%);
+    background:var(--bg2); border:1px solid var(--cyan);
+    padding:8px 22px; font-family:var(--font-main); font-size:10px; letter-spacing:2px;
+    color:var(--green); z-index:200; opacity:0; transition:opacity .3s;
+    pointer-events:none; text-align:center; text-shadow:0 0 8px var(--green);
+  }
+  #notif.show { opacity:1; }
+
+  /* ── MIC SCREEN ── */
+  #mic-screen {
+    position:fixed; inset:0; background:rgba(0,0,0,.88);
+    display:flex; align-items:center; justify-content:center;
+    z-index:600; flex-direction:column; gap:20px;
+  }
+  #mic-screen.hidden { display:none; }
+  #mic-screen h2 { font-family:var(--font-main); font-size:22px; letter-spacing:4px; color:var(--cyan); text-shadow:0 0 20px var(--cyan); }
+  #mic-screen p  { font-size:12px; letter-spacing:2px; color:var(--cyan-dim); text-align:center; line-height:2; }
+  #mic-btn {
+    padding:12px 36px; border:1px solid var(--cyan); background:transparent;
+    color:var(--cyan); font-family:var(--font-main); font-size:12px; letter-spacing:3px;
+    cursor:pointer; text-transform:uppercase; transition:all .3s;
+  }
+  #mic-btn:hover { background:rgba(0,229,255,.1); box-shadow:0 0 20px var(--cyan); }
+
+  /* ── WAKE HINT ── */
+  #wake-hint {
+    position:fixed; bottom:58px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-main); font-size:10px; letter-spacing:3px;
+    color:rgba(0,229,255,.28); z-index:50; text-align:center;
+    pointer-events:none; animation:pulse 3s infinite;
+  }
+
+  /* ── BACKEND STATUS ── */
+  #backend-status {
+    position:fixed; top:58px; right:16px;
+    font-family:var(--font-main); font-size:9px; letter-spacing:2px;
+    z-index:150; padding:5px 10px; border:1px solid var(--border);
+    background:var(--bg2);
+  }
+  #backend-status.ok  { color:var(--green); border-color:var(--green); }
+  #backend-status.err { color:var(--orange); border-color:var(--orange); }
+</style>
+</head>
+<body>
+
+<!-- MIC PERMISSION -->
+<div id="mic-screen">
+  <h2>BUDDY OS</h2>
+  <p>VOICE COMMAND INTERFACE<br>MICROPHONE ACCESS REQUIRED<br><br>SAY "WAKE UP BUDDY" TO ACTIVATE</p>
+  <button id="mic-btn" onclick="requestMic()">INITIALIZE MIC ACCESS</button>
+</div>
+
+<!-- BOOT OVERLAY -->
+<div id="boot-overlay" class="hidden">
+  <div id="boot-logo">BUDDY</div>
+  <div id="boot-sub">INITIALIZING SYSTEMS</div>
+  <div id="boot-prog"><div id="boot-bar"></div></div>
+  <div id="boot-msg">Loading neural interface...</div>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notif"></div>
+
+<!-- WAKE HINT -->
+<div id="wake-hint">SAY "WAKE UP BUDDY" TO ACTIVATE</div>
+
+<!-- BACKEND STATUS -->
+<div id="backend-status" class="err">BACKEND: CHECKING...</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="sys-status">SYS ONLINE</div>
+  <div style="color:var(--cyan-dim);letter-spacing:3px;">COMMAND ACTIVE · AWAITING DIRECTIVES</div>
+  <div class="ticker">
+    <span class="ticker-inner">48000 Hz / 320 kbps / 2 CH &nbsp;&nbsp;&nbsp;&nbsp; NEURAL LINK ACTIVE &nbsp;&nbsp;&nbsp;&nbsp; THREAT LEVEL: ZERO &nbsp;&nbsp;&nbsp;&nbsp; ENCRYPTION: AES-256 &nbsp;&nbsp;&nbsp;&nbsp; BUDDY OS RUNNING &nbsp;&nbsp;&nbsp;&nbsp; FULL SYSTEM ACCESS ENABLED &nbsp;&nbsp;&nbsp;&nbsp; 48000 Hz / 320 kbps / 2 CH &nbsp;&nbsp;&nbsp;&nbsp; NEURAL LINK ACTIVE &nbsp;&nbsp;&nbsp;&nbsp; THREAT LEVEL: ZERO &nbsp;&nbsp;&nbsp;&nbsp; ENCRYPTION: AES-256 &nbsp;&nbsp;&nbsp;&nbsp; BUDDY OS RUNNING &nbsp;&nbsp;&nbsp;&nbsp; FULL SYSTEM ACCESS ENABLED &nbsp;&nbsp;&nbsp;&nbsp;</span>
+  </div>
+  <div class="top-right">BUDDY OS / VER 1.0 /<br>USER: BOSS</div>
+  <div style="color:var(--cyan-dim);font-size:10px;" id="top-temps">CPU: --°C &nbsp; GPU: 42°C</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT -->
+  <div class="panel">
+    <div class="pbox">
+      <div class="ptitle">CPU Usage</div>
+      <div class="bigval" id="cpu-val">--%</div>
+      <div class="bwrap"><div class="btrack"><div class="bfill o" id="cpu-bar" style="width:0%"></div></div></div>
+      <div class="minichart" id="cpu-chart"></div>
+    </div>
+    <div class="pbox">
+      <div class="ptitle">System RAM</div>
+      <div class="subval">FREE: <span id="ram-free">--</span>GB / USED: <span id="ram-used">--</span>GB</div>
+      <div class="bwrap" style="margin-top:8px"><div class="btrack"><div class="bfill c" id="ram-bar" style="width:0%"></div></div></div>
+    </div>
+    <div class="pbox">
+      <div class="ptitle">Drive #1 Status</div>
+      <div class="subval">TOTAL: 2TB / READ: 450 MB/s</div>
+      <div class="subval">WRITE: 410 MB/s</div>
+      <div class="minichart" id="drive-chart"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1">
+      <div class="pbox"><div class="ptitle">Core 1</div><div class="minichart" id="core1-chart" style="height:50px"></div></div>
+      <div class="pbox"><div class="ptitle">Core 2</div><div class="minichart" id="core2-chart" style="height:50px"></div></div>
+    </div>
+    <div class="pbox"><div class="ptitle">Net Up</div><div class="minichart" id="net-chart"></div></div>
+  </div>
+
+  <!-- CENTER -->
+  <div id="center">
+    <div id="arc-container">
+      <svg id="arc-svg" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="ag" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#00e5ff" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="130" cy="130" r="120" fill="url(#ag)"/>
+        <circle cx="130" cy="130" r="118" fill="none" stroke="rgba(0,229,255,0.05)" stroke-width="1"/>
+        <circle cx="130" cy="130" r="110" fill="none" stroke="rgba(0,229,255,0.3)" stroke-width="1.5" stroke-dasharray="8 4" class="arc-ring slow"/>
+        <circle cx="130" cy="130" r="100" fill="none" stroke="rgba(0,229,255,0.5)" stroke-width="1" stroke-dasharray="170 10 20 10" class="arc-ring"/>
+        <circle cx="130" cy="130" r="90" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="2" stroke-dasharray="3 6" class="arc-ring ccw"/>
+        <circle cx="130" cy="130" r="78" fill="none" stroke="rgba(0,229,255,0.6)" stroke-width="1.5" stroke-dasharray="60 5 20 5 30 5" class="arc-ring slow ccw"/>
+        <circle cx="130" cy="130" r="66" fill="none" stroke="rgba(0,229,255,0.3)" stroke-width="1" stroke-dasharray="2 12" class="arc-ring"/>
+        <circle cx="130" cy="130" r="56" fill="none" stroke="rgba(0,229,255,0.7)" stroke-width="2" stroke-dasharray="90 5 10 5" class="arc-ring ccw"/>
+        <circle cx="130" cy="130" r="42" fill="rgba(0,20,30,0.9)" stroke="rgba(0,229,255,0.8)" stroke-width="1.5"/>
+        <circle cx="130" cy="130" r="32" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="1" stroke-dasharray="4 4" class="arc-ring"/>
+        <circle cx="130" cy="130" r="18" fill="rgba(0,229,255,0.08)" stroke="rgba(0,229,255,0.9)" stroke-width="1.5"/>
+        <circle cx="130" cy="130" r="7" fill="rgba(0,229,255,0.5)"/>
+      </svg>
+      <div id="arc-glow">
+        <span id="arc-main">BUDDY</span>
+        <span class="arc-sub" id="arc-sub">STANDBY</span>
+      </div>
+    </div>
+
+    <div id="status-row">
+      <div class="badge" id="bdg-sleep">SLEEPING</div>
+      <div class="badge active" id="bdg-mic">MIC ACTIVE</div>
+      <div class="badge" id="bdg-backend">BACKEND: OFF</div>
+      <div class="badge" id="bdg-time">00:00</div>
+    </div>
+
+    <div id="voice-vis"></div>
+
+    <div id="chat-area">
+      <div class="cbox">
+        <div class="clabel you">YOU SAID</div>
+        <div class="ctext" id="you-said">Awaiting input...</div>
+      </div>
+      <div class="cbox">
+        <div class="clabel buddy">BUDDY RESPONSE</div>
+        <div id="resp-text">System initialized. Say "Wake up Buddy" to begin.</div>
+      </div>
+    </div>
+
+    <div style="font-family:var(--font-main);font-size:8px;letter-spacing:4px;color:rgba(0,229,255,.18);margin-top:8px;">
+      BUDDY INDUSTRIES · ARC REACTOR MK VII
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel right">
+    <div class="pbox">
+      <div class="ptitle">Network &amp; Freq</div>
+      <div class="netstat">FREQ: <span>4.2 GHz</span></div>
+      <div class="netstat">LAN: <span>192.168.1.104</span></div>
+      <div class="netstat">WAN: <span>104.20.196.112</span></div>
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+        <div class="netstat">CPU: <span id="net-cpu">--%</span> / MEM: <span id="net-mem">--%</span> / HDD: <span>32%</span></div>
+      </div>
+    </div>
+    <div class="pbox">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px;">
+        <div style="font-family:var(--font-main);font-size:28px;font-weight:700;color:var(--cyan);text-shadow:0 0 16px var(--cyan);">30°C</div>
+        <div style="font-family:var(--font-main);font-size:16px;color:var(--cyan);" id="clock">--:--:--</div>
+      </div>
+      <div class="netstat">CLEAR · HUMIDITY: 45% · WIND: 12 KM/H</div>
+      <div class="netstat" style="margin-top:6px">TONIGHT: 22°C / TOMORROW: 31°C</div>
+    </div>
+    <div class="pbox">
+      <div class="ptitle">System Temps</div>
+      <div class="temp-row"><div class="temp-label">GPU</div><div class="temp-track"><div class="temp-bar tgpu" style="width:65%"></div></div><div class="temp-val">42°C</div></div>
+      <div class="temp-row"><div class="temp-label">CPU-A</div><div class="temp-track"><div class="temp-bar tcpua" style="width:50%"></div></div><div class="temp-val">38°C</div></div>
+      <div class="temp-row"><div class="temp-label">CPU-B</div><div class="temp-track"><div class="temp-bar tcpub" style="width:55%"></div></div><div class="temp-val">40°C</div></div>
+      <div class="temp-row"><div class="temp-label">LOCAL</div><div class="temp-track"><div class="temp-bar tlocal" style="width:25%"></div></div><div class="temp-val">25°C</div></div>
+    </div>
+    <div class="pbox" style="flex:1">
+      <div class="ptitle">Memory Cache</div>
+      <div class="bwrap" style="margin-top:8px"><div class="btrack"><div class="bfill c" style="width:72%"></div></div></div>
+      <div class="netstat" style="margin-top:8px">ITEMS: <span>1,492,381</span></div>
+      <div class="netstat">STATUS: <span style="color:var(--green);text-shadow:0 0 8px var(--green)">ARMED</span></div>
+    </div>
+    <div class="pbox">
+      <div class="ptitle">Battery</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <div class="bigval" id="bat-val">--%</div>
+        <div class="subval" id="bat-status">DETECTING</div>
+      </div>
+      <div class="bwrap" style="margin-top:8px"><div class="btrack"><div class="bfill g" id="bat-bar" style="width:0%"></div></div></div>
+    </div>
+    <div class="pbox">
+      <div class="ptitle">Traffic</div>
+      <div class="netstat">UP: <span id="net-up">-- MB/s</span></div>
+      <div class="netstat">DL: <span id="net-dl">-- MB/s</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottombar">
+  <div class="bseg"><span class="st">NET UP</span><div class="bbars" id="bb-net"></div></div>
+  <div class="bseg"><span class="st">TRAFFIC</span><span class="sv">UP: 12.4 MB/s</span><span class="sv">DL: 45.1 MB/s</span></div>
+  <div id="stark-logo">B U D D Y &nbsp; I N D U S T R I E S</div>
+  <div class="bseg"><span class="st">CPU#2</span><div class="bbars" id="bb-cpu2"></div></div>
+  <div class="bseg"><span class="st">MAIN CPU</span><span class="sv">USAGE: <span id="bb-cpu">--%</span></span><span class="sv">TEMP: 45°C</span></div>
+</div>
+
+<script>
+const BACKEND = "http://127.0.0.1:8765";
+let backendOnline = false;
+let buddyAwake = false;
+let micGranted = false;
+let isListening = false;
+let isProcessing = false;
+let recognition = null;
+let visAnim = null;
+
+// ── MINI CHARTS ──────────────────────────────────────────────────────────
+function mkChart(id, color, n) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < (n||18); i++) {
+    const b = document.createElement('div');
+    b.className = 'mbar';
+    b.style.height = (8 + Math.random()*32) + 'px';
+    if (color) b.style.background = color;
+    b.style.animationDelay = (Math.random()*2)+'s';
+    b.style.animationDuration = (1.5+Math.random())+'s';
+    el.appendChild(b);
+  }
+}
+function mkBBars(id, n) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < (n||14); i++) {
+    const b = document.createElement('span');
+    b.style.height = (6+Math.random()*18)+'px';
+    b.style.animationDelay = (Math.random()*2)+'s';
+    b.style.animationDuration = (1+Math.random())+'s';
+    el.appendChild(b);
+  }
+}
+mkChart('cpu-chart','var(--orange)'); mkChart('drive-chart'); mkChart('core1-chart','var(--cyan)',12); mkChart('core2-chart','var(--cyan)',12); mkChart('net-chart','var(--green)');
+mkBBars('bb-net'); mkBBars('bb-cpu2');
+
+// Voice vis
+(()=>{ const v=document.getElementById('voice-vis'); for(let i=0;i<22;i++){const b=document.createElement('div');b.className='vbar';b.style.height='4px';v.appendChild(b);} })();
+
+// ── CLOCK ────────────────────────────────────────────────────────────────
+function tickClock() {
+  const n=new Date();
+  const s=t=>String(t).padStart(2,'0');
+  document.getElementById('clock').textContent=`${s(n.getHours())}:${s(n.getMinutes())}:${s(n.getSeconds())}`;
+  document.getElementById('bdg-time').textContent=`${s(n.getHours())}:${s(n.getMinutes())}`;
+}
+setInterval(tickClock,1000); tickClock();
+
+// ── BACKEND PING + STATS ─────────────────────────────────────────────────
+async function pingBackend() {
+  try {
+    const r = await fetch(BACKEND+'/ping', {signal: AbortSignal.timeout(2000)});
+    if (r.ok) {
+      backendOnline = true;
+      document.getElementById('backend-status').textContent = 'BACKEND: ONLINE';
+      document.getElementById('backend-status').className = 'ok';
+      document.getElementById('bdg-backend').textContent = 'BACKEND: ON';
+      document.getElementById('bdg-backend').className = 'badge active';
+    }
+  } catch(e) {
+    backendOnline = false;
+    document.getElementById('backend-status').textContent = 'BACKEND: OFFLINE — run buddy.py';
+    document.getElementById('backend-status').className = 'err';
+    document.getElementById('bdg-backend').textContent = 'BACKEND: OFF';
+    document.getElementById('bdg-backend').className = 'badge';
+  }
+}
+pingBackend();
+setInterval(pingBackend, 5000);
+
+async function fetchStats() {
+  if (!backendOnline) return;
+  try {
+    const r = await fetch(BACKEND+'/stats', {signal: AbortSignal.timeout(2000)});
+    const d = await r.json();
+    if (d.cpu !== undefined) {
+      document.getElementById('cpu-val').textContent = d.cpu+'%';
+      document.getElementById('cpu-bar').style.width = d.cpu+'%';
+      document.getElementById('net-cpu').textContent = d.cpu+'%';
+      document.getElementById('bb-cpu').textContent = d.cpu+'%';
+      document.getElementById('top-temps').textContent = 'CPU: '+d.cpu+'%  GPU: 42°C';
+    }
+    if (d.ram_pct !== undefined) {
+      document.getElementById('ram-bar').style.width = d.ram_pct+'%';
+      document.getElementById('net-mem').textContent = d.ram_pct+'%';
+      const free = (d.ram_total - d.ram_used).toFixed(1);
+      document.getElementById('ram-free').textContent = free;
+      document.getElementById('ram-used').textContent = d.ram_used;
+    }
+    if (d.battery !== null && d.battery !== undefined) {
+      document.getElementById('bat-val').textContent = d.battery+'%';
+      document.getElementById('bat-bar').style.width = d.battery+'%';
+      document.getElementById('bat-status').textContent = d.charging ? 'CHARGING' : 'ON BATTERY';
+    }
+    const up=(Math.random()*20+5).toFixed(1), dl=(Math.random()*50+20).toFixed(1);
+    document.getElementById('net-up').textContent = up+' MB/s';
+    document.getElementById('net-dl').textContent = dl+' MB/s';
+  } catch(e) {}
+}
+setInterval(fetchStats, 3000); fetchStats();
+
+// ── NOTIFICATION ─────────────────────────────────────────────────────────
+function notif(msg, dur) {
+  const n=document.getElementById('notif');
+  n.textContent=msg; n.classList.add('show');
+  setTimeout(()=>n.classList.remove('show'), dur||3000);
+}
+
+// ── TYPING EFFECT ─────────────────────────────────────────────────────────
+function typeText(el, txt, spd, cb) {
+  el.textContent=''; el.classList.add('typing');
+  let i=0;
+  const t=setInterval(()=>{
+    if(i<txt.length){el.textContent+=txt[i++];}
+    else{clearInterval(t);el.classList.remove('typing');if(cb)cb();}
+  }, spd||28);
+}
+
+// ── VOICE VISUALIZER ─────────────────────────────────────────────────────
+function startVis(hot) {
+  const bars=document.querySelectorAll('.vbar');
+  if(visAnim)clearInterval(visAnim);
+  visAnim=setInterval(()=>{
+    bars.forEach(b=>{
+      b.style.height=(hot?(4+Math.random()*26):(2+Math.random()*8))+'px';
+      b.className='vbar'+(hot?' hot':'');
+    });
+  },80);
+}
+function stopVis() {
+  if(visAnim)clearInterval(visAnim);
+  document.querySelectorAll('.vbar').forEach(b=>{b.style.height='4px';b.className='vbar';});
+}
+
+// ── BROWSER FALLBACK TTS ──────────────────────────────────────────────────
+function speakBrowser(text) {
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.92; u.pitch=0.75; u.volume=1;
+  const voices=window.speechSynthesis.getVoices();
+  const male=voices.find(v=>/male|david|mark|daniel|james/i.test(v.name))
+    ||voices.find(v=>!v.name.toLowerCase().includes('female')&&v.lang.startsWith('en'));
+  if(male)u.voice=male;
+  window.speechSynthesis.speak(u);
+}
+
+// ── BOOT ANIMATION ────────────────────────────────────────────────────────
+function playBoot(cb) {
+  const ov=document.getElementById('boot-overlay');
+  const bar=document.getElementById('boot-bar');
+  const msg=document.getElementById('boot-msg');
+  const msgs=['Initializing neural interface...','Loading voice modules...','Syncing OS bridge...','BUDDY OS online...'];
+  ov.classList.remove('hidden'); ov.style.opacity='1';
+  let pct=0,mi=0;
+  const iv=setInterval(()=>{
+    pct+=2; bar.style.width=pct+'%';
+    if(pct%25===0&&mi<msgs.length)msg.textContent=msgs[mi++];
+    if(pct>=100){
+      clearInterval(iv); msg.textContent='READY.';
+      setTimeout(()=>{
+        ov.style.opacity='0';
+        setTimeout(()=>{ov.classList.add('hidden');bar.style.width='0%';if(cb)cb();},700);
+      },350);
+    }
+  },18);
+}
+
+// ── SEND COMMAND TO BACKEND ───────────────────────────────────────────────
+async function sendCommand(cmd) {
+  document.getElementById('you-said').textContent = `"${cmd}"`;
+  isProcessing = true;
+  stopVis();
+  document.getElementById('bdg-mic').classList.remove('listening');
+  document.getElementById('arc-sub').textContent = 'PROCESSING';
+
+  let response = '', action = 'none';
+
+  if (backendOnline) {
+    try {
+      const enc = encodeURIComponent(cmd);
+      const r = await fetch(`${BACKEND}/command?q=${enc}`, {signal: AbortSignal.timeout(8000)});
+      const d = await r.json();
+      response = d.response || '';
+      action = d.action || 'none';
+      // backend already spoke via pyttsx3; no browser TTS needed
+    } catch(e) {
+      // fallback
+      response = await localFallback(cmd);
+      speakBrowser(response);
+    }
+  } else {
+    // browser-only fallback
+    response = await localFallback(cmd);
+    speakBrowser(response);
+  }
+
+  // handle wake/sleep state from action
+  if (action === 'wake') {
+    buddyAwake = true;
+    document.getElementById('bdg-sleep').textContent = 'AWAKE';
+    document.getElementById('bdg-sleep').classList.add('active');
+    document.getElementById('arc-sub').textContent = 'ONLINE';
+  } else if (action === 'sleep_buddy') {
+    buddyAwake = false;
+    document.getElementById('bdg-sleep').textContent = 'SLEEPING';
+    document.getElementById('bdg-sleep').classList.remove('active');
+    document.getElementById('arc-sub').textContent = 'STANDBY';
+  }
+
+  const respEl = document.getElementById('resp-text');
+  startVis(false);
+  typeText(respEl, response, 25, () => {
+    stopVis();
+    isProcessing = false;
+    if (action !== 'sleep_buddy') {
+      document.getElementById('arc-sub').textContent = buddyAwake ? 'LISTENING' : 'STANDBY';
+    }
+    restartListen();
+  });
+}
+
+// ── LOCAL FALLBACK (no backend) ───────────────────────────────────────────
+async function localFallback(cmd) {
+  const l = cmd.toLowerCase();
+  if ((l.includes('wake up')||l.includes('wakeup'))&&l.includes('buddy')) {
+    buddyAwake = true;
+    playBoot(()=>{});
+    return "Welcome boss, we are online. What can I do for you, sir? Note: run buddy.py for full OS control.";
+  }
+  if (!buddyAwake) return '';
+  if (l.includes('youtube')) { window.open('https://youtube.com','_blank'); return 'Opening YouTube, boss.'; }
+  if (l.includes('google')) { window.open('https://google.com','_blank'); return 'Opening Google, sir.'; }
+  if (l.includes('time')) return 'The time is '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+', boss.';
+  if (l.includes('joke')) return "Why do programmers prefer dark mode? Because light attracts bugs, sir.";
+  if (l.includes('thank')) return "Always at your service, boss.";
+  return `Command noted: ${cmd}. Start buddy.py for full OS control, boss.`;
+}
+
+// ── SPEECH RECOGNITION ────────────────────────────────────────────────────
+function initRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { notif('Speech recognition not supported. Use Chrome or Edge.', 5000); return; }
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('bdg-mic').classList.add('listening');
+    if (buddyAwake) document.getElementById('arc-sub').textContent = 'LISTENING';
+    if (buddyAwake) startVis(true);
+  };
+
+  recognition.onresult = (e) => {
+    const t = e.results[0][0].transcript.trim();
+    isListening = false; stopVis();
+    const l = t.toLowerCase();
+    // wake command
+    if ((l.includes('wake up')||l.includes('wakeup'))&&l.includes('buddy')) {
+      if (!buddyAwake) {
+        buddyAwake = true;
+        document.getElementById('you-said').textContent = '"Wake up buddy"';
+        document.getElementById('arc-sub').textContent = 'WAKING';
+        document.getElementById('bdg-mic').classList.remove('listening');
+        playBoot(() => {
+          sendCommand(t);
+        });
+      } else {
+        sendCommand(t);
+      }
+    } else {
+      sendCommand(t);
+    }
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false; stopVis();
+    if (e.error !== 'no-speech' && e.error !== 'aborted') console.warn('SR error:', e.error);
+    restartListen();
+  };
+
+  recognition.onend = () => {
+    isListening = false; stopVis();
+    if (!isProcessing) restartListen();
+  };
+}
+
+function startListen() {
+  if (!recognition || isListening || isProcessing) return;
+  try { recognition.start(); } catch(e) {}
+}
+
+function restartListen() {
+  if (!micGranted || isProcessing) return;
+  setTimeout(() => { if (!isListening && !isProcessing) startListen(); }, 700);
+}
+
+// ── MIC INIT ─────────────────────────────────────────────────────────────
+async function requestMic() {
+  try {
+    await navigator.mediaDevices.getUserMedia({audio:true});
+    micGranted = true;
+    document.getElementById('mic-screen').classList.add('hidden');
+    window.speechSynthesis && window.speechSynthesis.getVoices();
+    initRecognition();
+    startListen();
+    notif('MIC ONLINE · SAY "WAKE UP BUDDY" TO ACTIVATE', 4000);
+  } catch(e) {
+    alert('Microphone permission denied. Please allow and refresh.');
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && buddyAwake) notif('BUDDY ONLINE · WELCOME BACK BOSS', 2000);
+});
+</script>
+</body>
+</html>
